@@ -62,7 +62,7 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
-                deployViaGitops(classname, registryUrl, dockerTag, repositoryUrl, filename)
+                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
             }
         } catch (Exception e) {
             echo "Pipeline failed: ${e.getMessage()}"
@@ -122,7 +122,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitops(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename) {
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
