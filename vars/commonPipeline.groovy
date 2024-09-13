@@ -1,5 +1,6 @@
 // vars/commonPipeline.groovy
-import com.cloudogu.gitops.gitopsbuildlib.* // Import other necessary libraries if required
+@Library('gitops-build-lib@0.6.0') _
+import com.cloudogu.gitops.gitopsbuildlib.*
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
