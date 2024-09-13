@@ -1,5 +1,5 @@
 // vars/commonPipeline.groovy
-@Library('gitops-build-lib@0.6.0') _
+@Library('github.com/cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
 
 // Define a function that encapsulates the shared pipeline logic
