@@ -127,7 +127,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, string team) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team) {
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
