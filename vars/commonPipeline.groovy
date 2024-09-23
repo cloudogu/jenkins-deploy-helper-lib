@@ -50,7 +50,7 @@ def call(Map config) {
             }
 
             stage('Build Docker Image') {
-                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs)
+                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs, config)
                 echo "Docker image built with tag: ${dockerTag}"
             }
 
@@ -105,7 +105,7 @@ def determineRegistry(String tag) {
     return [registryUrl, serviceAcc]
 }
 
-def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs) {
+def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs, Map config) {
     withCredentials([string(credentialsId: 'chatbot-github-pat', variable: 'GIT_API_KEY')]) {
 
         for (arg in config.buildArgs) {
