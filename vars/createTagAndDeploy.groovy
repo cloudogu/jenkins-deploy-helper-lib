@@ -1,4 +1,4 @@
-// vars/commonPipeline.groovy
+// vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
 
