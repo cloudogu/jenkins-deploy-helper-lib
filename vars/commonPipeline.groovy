@@ -109,7 +109,7 @@ def buildDockerImage(String registryUrl, String classname, String dockerTag, Lis
     withCredentials([string(credentialsId: 'chatbot-github-pat', variable: 'GIT_API_KEY')]) {
 
         buildArgs.add("GIT_API_KEY=${GIT_API_KEY}")
-        def argsString = buildArgs.join(' ')
+        def argsString = "[" + buildArgs.join(', ') + "]"
         echo "ARG STRING:" + argsString
         return docker.build("${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}", "--no-cache ${argsString} .")
     }
