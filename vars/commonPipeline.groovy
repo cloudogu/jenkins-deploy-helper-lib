@@ -23,10 +23,6 @@ def call(Map config) {
         def webhookUrl = config.webhook ?: 'default-webhook-url'
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
-
-        stage('Deploy via Argo') {
-                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
-        }
         
         try {
             
