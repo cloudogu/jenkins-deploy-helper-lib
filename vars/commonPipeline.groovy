@@ -24,7 +24,12 @@ def call(Map config) {
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
 
+        stage('Deploy via Argo') {
+                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
+        }
+        
         try {
+            
             stage('Initialize Workspace') {
                 deleteDir()
             }
@@ -62,9 +67,7 @@ def call(Map config) {
                 pushDockerImage(image, dockerTag, registryUrl, serviceAcc)
             }
 
-            stage('Deploy via Argo') {
-                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
-            }
+
         } catch (Exception e) {
             echo "Pipeline failed: ${e.getMessage()}"
             currentBuild.result = 'FAILURE'
