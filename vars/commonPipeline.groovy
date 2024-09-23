@@ -23,7 +23,7 @@ def call(Map config) {
         def webhookUrl = config.webhook ?: 'default-webhook-url'
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
-        def buildArgs = ["--build-arg ", config.buildArgs]
+        def buildArgs = ["--build-arg ", config.buildArgs ?: '']
 
         try {
             
