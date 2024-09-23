@@ -4,12 +4,6 @@ import com.cloudogu.gitops.gitopsbuildlib.*
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
-    node('docker') {
-        properties([
-            buildDiscarder(logRotator(numToKeepStr: '5')),
-            disableConcurrentBuilds(),
-            pipelineTriggers([cron('H H(2-4) * * *')])
-        ])
 
         def image
         def tag
@@ -76,7 +70,6 @@ def call(Map config) {
             notifyBuildResult(dockerTag, registryUrl, webhookUrl)
         }
     }
-}
 
 // Helper functions to handle stages and reusable logic
 def getLatestTag() {
