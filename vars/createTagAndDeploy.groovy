@@ -18,6 +18,7 @@ def call(Map config) {
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
         def buildArgs = []
+        def team = config.team?: "sos"
 
         try {
             
@@ -45,12 +46,12 @@ def call(Map config) {
             }
 
             stage('Determine Registry') {
-                (registryUrl, serviceAcc) = determineRegistry(tag)
+                (registryUrl, serviceAcc) = determineRegistry(tag, team)
                 echo "Using registry: ${registryUrl}"
             }
 
             stage('Build Docker Image') {
-                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs, config)
+                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs, config, team)
                 echo "Docker image built with tag: ${dockerTag}"
             }
 
@@ -59,7 +60,7 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
-                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
+                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team)
             }
             
         } catch (Exception e) {
@@ -99,13 +100,13 @@ def generateDockerTag(String tag) {
     return [dockerTag, version]
 }
 
-def determineRegistry(String tag) {
+def determineRegistry(String tag, String team) {
     def registryUrl = tag.contains("+gar") ? "europe-docker.pkg.dev" : "eu.gcr.io"
-    def serviceAcc = tag.contains("+gar") ? "ar-sos" : "gcloud-docker"
+    def serviceAcc = tag.contains("+gar") ? "ar-${team}" : "gcloud-docker"
     return [registryUrl, serviceAcc]
 }
 
-def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs, Map config) {
+def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs, Map config , String team) {
     withCredentials([string(credentialsId: 'chatbot-github-pat', variable: 'GIT_API_KEY')]) {
 
         for (arg in config.buildArgs) {
@@ -114,7 +115,7 @@ def buildDockerImage(String registryUrl, String classname, String dockerTag, Lis
         buildArgs.add("--build-arg GIT_API_KEY=${GIT_API_KEY}")
         def argsString = buildArgs.join(' ')
         echo "ARG STRING: " + argsString
-        return docker.build("${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}", "--no-cache ${argsString} .")
+        return docker.build("${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}", "--no-cache ${argsString} .")
     }
 }
 
@@ -126,7 +127,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, string team) {
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
@@ -146,14 +147,14 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                     [
                         filename: filename,
                         containerName: classname,
-                        imageName: "${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}"
+                        imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
                     ]
                 ]
             ]
         ],
         stages: [
             production: [
-                namespace: 'sos',
+                namespace: '${team}',
                 deployDirectly: true
             ]
         ],
