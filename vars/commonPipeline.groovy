@@ -17,7 +17,7 @@ def call(Map config) {
         def webhookUrl = config.webhook ?: 'default-webhook-url'
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
-        def buildArgs = ["--build-arg"]
+        def buildArgs = []
 
         try {
             
@@ -112,7 +112,7 @@ def buildDockerImage(String registryUrl, String classname, String dockerTag, Lis
             buildArgs.add(arg)
         }
         buildArgs.add("GIT_API_KEY=${GIT_API_KEY}")
-        def argsString = "[" + buildArgs.join(', ') + "]"
+        def argsString = "--build-arg ["+ buildArgs.join(', ') + "]"
         echo "ARG STRING: " + argsString
         return docker.build("${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}", "--no-cache ${argsString} .")
     }
