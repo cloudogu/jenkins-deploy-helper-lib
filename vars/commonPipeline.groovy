@@ -23,7 +23,8 @@ def call(Map config) {
         def webhookUrl = config.webhook ?: 'default-webhook-url'
         def repositoryUrl = config.repositoryUrl ?: 'default-repository-url'
         def filename = config.filename ?: 'deployment.yaml'
-        
+        def buildArgs = ["--build-arg ", config.buildArgs]
+
         try {
             
             stage('Initialize Workspace') {
@@ -113,7 +114,10 @@ def determineRegistry(String tag) {
 
 def buildDockerImage(String registryUrl, String classname, String dockerTag) {
     withCredentials([string(credentialsId: 'chatbot-github-pat', variable: 'GIT_API_KEY')]) {
-        return docker.build("${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}", "--no-cache --build-arg GIT_API_KEY=${GIT_API_KEY} .")
+
+        buildArgs.add("GIT_API_KEY=${GIT_API_KEY}")
+        def argsString = buildArgs.join(' ')
+        return docker.build("${registryUrl}/cloudogu-backend/team-sos/${classname}:${dockerTag}", "--no-cache ${argsString} .")
     }
 }
 
