@@ -102,7 +102,7 @@ def checkoutTag(String tag) {
 def generateDockerTag(String tag) {
     def dockerTagWithoutTimestamp = tag.replaceAll(/\+.*$/, '').replaceFirst(/^v/, '')
     def version = computeVersion(tag)
-    def dockerTag = "${dockerTagWithoutTimestamp}_${version}"
+    def dockerTag = "${dockerTagWithoutTimestamp}-${version}"
     return [dockerTag, version]
 }
 
@@ -124,7 +124,7 @@ def buildDockerImage(String registryUrl, String classname, String dockerTag, Lis
 def pushDockerImage(def image, String dockerTag, String registryUrl, String serviceAcc) {
     docker.withRegistry("https://${registryUrl}", "${serviceAcc}") {
         image.push(dockerTag)
-        image.push(dockerTag.split('_')[0]) // Push the version without timestamp
+        image.push(dockerTag.split('-')[0]) // Push the version without timestamp
         image.push('latest')
     }
 }
