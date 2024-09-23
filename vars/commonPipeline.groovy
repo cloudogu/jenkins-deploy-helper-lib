@@ -63,7 +63,10 @@ def call(Map config) {
                 pushDockerImage(image, dockerTag, registryUrl, serviceAcc)
             }
 
-
+            stage('Deploy via Argo') {
+                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename)
+            }
+            
         } catch (Exception e) {
             echo "Pipeline failed: ${e.getMessage()}"
             currentBuild.result = 'FAILURE'
