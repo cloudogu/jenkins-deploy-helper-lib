@@ -11,7 +11,7 @@ node('docker') {
     properties([
         buildDiscarder(logRotator(numToKeepStr: '5')),
         disableConcurrentBuilds(),
-        pipelineTriggers([cron('H H(2-4) * * *')])
+        pipelineTriggers([cron('H H(2-4) * * *')]) // randomly between 2 and 4 AM for load balancing
     ])
     
     // Load credentials for the webhook URL from Jenkins credentials store
