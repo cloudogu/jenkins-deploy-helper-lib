@@ -19,6 +19,8 @@ def call(Map config) {
         def filename = config.filename ?: 'deployment.yaml'
         def buildArgs = []
         def team = config.team?: "sos"
+        // Flag to control deployment
+        def deploy = config.deploy ?: true
 
         try {
             
@@ -60,7 +62,12 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
-                deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team)
+                if (config.get('deploy', true)) { // Default is true
+                    echo "Deploying via ArgoCD..."
+                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team)
+                } else {
+                    echo "Skipping deployment stage as deploy flag is set to false."
+                }
             }
             
         } catch (Exception e) {
