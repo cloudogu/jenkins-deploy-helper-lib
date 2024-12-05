@@ -21,7 +21,8 @@ def call(Map config) {
         def team = config.team?: "sos"
         // Flag to control deployment
         def deploy = config.deploy ?: true
-        def fieldpath = config.fieldpath ?: 'spec.template.spec.containers'
+        def fieldPath = config.fieldpath ?: 'spec.template.spec.containers'
+        def containerName = config.containerName ?: classname
 
         try {
             
@@ -135,7 +136,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String fieldPath) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName) {
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
@@ -154,7 +155,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                 updateImages: [
                     [
                         filename: filename,
-                        containerName: classname,
+                        containerName: containerName,
                         imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
                     ]
                 ]
