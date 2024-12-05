@@ -155,7 +155,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                     [
                         filename: filename,
                         containerName: classname,
-                        imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
+                        // imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
                         updateValues: [[fieldPath: fieldPath, newValue: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"]]
                     ]
                 ]
