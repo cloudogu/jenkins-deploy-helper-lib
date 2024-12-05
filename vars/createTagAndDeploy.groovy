@@ -66,7 +66,7 @@ def call(Map config) {
             stage('Deploy via Argo') {
                 if (config.get('deploy', true)) { // Default is true
                     echo "Deploying via ArgoCD..."
-                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, fieldpath)
+                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName)
                 } else {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
