@@ -65,7 +65,7 @@ def call(Map config) {
             stage('Deploy via Argo') {
                 if (config.get('deploy', true)) { // Default is true
                     echo "Deploying via ArgoCD..."
-                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team)
+                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, fieldpath)
                 } else {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
@@ -135,7 +135,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String fieldPath) {
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
@@ -156,7 +156,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                         filename: filename,
                         containerName: classname,
                         imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
-                        updateValues: [[fieldPath: fieldpath, newValue: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"]]
+                        updateValues: [[fieldPath: fieldPath, newValue: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"]]
                     ]
                 ]
             ]
