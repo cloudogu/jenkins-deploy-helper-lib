@@ -21,6 +21,7 @@ def call(Map config) {
         def team = config.team?: "sos"
         // Flag to control deployment
         def deploy = config.deploy ?: true
+        def fieldpath = config.fieldpath ?: 'spec.template.spec.containers'
 
         try {
             
@@ -154,7 +155,8 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                     [
                         filename: filename,
                         containerName: classname,
-                        imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
+                        imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
+                        fieldPath: fieldPath
                     ]
                 ]
             ]
@@ -168,6 +170,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
     ]
     deployViaGitops(gitopsConfig)
 }
+
 
 def notifyBuildResult(String dockerTag, String registryUrl, String webhookUrl) {
     def messageText = "Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} completed successfully. Docker image ${dockerTag} was pushed to ${registryUrl} and deployed with ArgoCD."
