@@ -110,8 +110,8 @@ def generateDockerTag(String tag) {
 }
 
 def determineRegistry(String tag, String team) {
-    def registryUrl = tag.contains("+gar") ? "europe-docker.pkg.dev" : "eu.gcr.io"
-    def serviceAcc = tag.contains("+gar") ? "ar-${team}" : "gcloud-docker"
+    def registryUrl = tag.contains("+gcr") ? "eu.gcr.io" : "europe-docker.pkg.dev"
+    def serviceAcc = tag.contains("+gcr") ? "gcloud-docker" : "ar-${team}"
     return [registryUrl, serviceAcc]
 }
 
