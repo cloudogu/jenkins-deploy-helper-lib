@@ -23,6 +23,7 @@ def call(Map config) {
         def deploy = config.deploy ?: true
         def fieldPath = config.fieldpath ?: 'spec.template.spec.containers'
         def containerName = config.containerName ?: classname
+        def subfolder = config.subfolder ?: '.') 
 
         try {
             
@@ -55,7 +56,7 @@ def call(Map config) {
             }
 
             stage('Build Docker Image') {
-                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs, config, team)
+                image = buildDockerImage(registryUrl, classname, dockerTag, buildArgs, config, team, subfolder)
                 echo "Docker image built with tag: ${dockerTag}"
             }
 
@@ -66,7 +67,7 @@ def call(Map config) {
             stage('Deploy via Argo') {
                 if (config.get('deploy', true)) { // Default is true
                     echo "Deploying via ArgoCD..."
-                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName)
+                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName, subfolder)
                 } else {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
@@ -106,6 +107,7 @@ def generateDockerTag(String tag) {
     def dockerTagWithoutTimestamp = tag.replaceAll(/\+.*$/, '').replaceFirst(/^v/, '')
     def version = computeVersion(tag)
     def dockerTag = "${dockerTagWithoutTimestamp}-${version}"
+
     return [dockerTag, version]
 }
 
@@ -115,7 +117,7 @@ def determineRegistry(String tag, String team) {
     return [registryUrl, serviceAcc]
 }
 
-def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs, Map config , String team) {
+def buildDockerImage(String registryUrl, String classname, String dockerTag, List buildArgs, Map config , String team, String subfolder) {
     withCredentials([string(credentialsId: 'chatbot-github-pat', variable: 'GIT_API_KEY')]) {
 
         for (arg in config.buildArgs) {
@@ -124,7 +126,11 @@ def buildDockerImage(String registryUrl, String classname, String dockerTag, Lis
         buildArgs.add("--build-arg GIT_API_KEY=${GIT_API_KEY}")
         def argsString = buildArgs.join(' ')
         echo "ARG STRING: " + argsString
-        return docker.build("${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}", "--no-cache ${argsString} .")
+        def uri = "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}:${dockerTag}"
+        if (subfolder == '.') {
+            uri = "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
+        }
+        return docker.build(uri, "--no-cache ${argsString} .")
     }
 }
 
@@ -136,7 +142,12 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder) {
+    def imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}:${dockerTag}"
+    if (subfolder == '.') {
+            imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
+    }
+        
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
@@ -156,7 +167,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
                     [
                         filename: filename,
                         containerName: containerName,
-                        imageName: "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}",
+                        imageName: imageName,
                     ]
                 ]
             ]
