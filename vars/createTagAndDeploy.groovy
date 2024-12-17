@@ -23,7 +23,7 @@ def call(Map config) {
         def deploy = config.deploy ?: true
         def fieldPath = config.fieldpath ?: 'spec.template.spec.containers'
         def containerName = config.containerName ?: classname
-        def subfolder = config.subfolder ?: '.') 
+        def subfolder = config.subfolder ?: '.'
 
         try {
             
