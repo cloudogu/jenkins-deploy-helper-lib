@@ -157,7 +157,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
             baseUrl: env.SCMM_URL,
             repositoryUrl: repositoryUrl,
         ],
-        application: classname,
+        application: applicationName,
         gitopsTool: 'ARGO',
         folderStructureStrategy: 'ENV_PER_APP',
         deployments: [
