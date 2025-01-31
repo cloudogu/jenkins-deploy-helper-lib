@@ -68,7 +68,7 @@ def call(Map config) {
             stage('Deploy via Argo') {
                 if (config.get('deploy', true)) { // Default is true
                     echo "Deploying via ArgoCD..."
-                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName, subfolder)
+                    deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName, subfolder, applicationName)
                 } else {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
@@ -143,7 +143,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
-def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder) {
+def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder, String applicationName) {
     def imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}:${dockerTag}"
     if (subfolder == '.') {
             imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
@@ -161,7 +161,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
         gitopsTool: 'ARGO',
         folderStructureStrategy: 'ENV_PER_APP',
         deployments: [
-            sourcePath: "apps/${classname}",
+            sourcePath: "apps/${applicationName}",
             destinationRootPath: 'apps',
             plain: [
                 updateImages: [
