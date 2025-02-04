@@ -79,7 +79,9 @@ def call(Map config) {
             currentBuild.result = 'FAILURE'
             throw e
         } finally {
-            notifyBuildResult(dockerTag, registryUrl, webhookUrl)
+            if (currentBuild.result == 'FAILURE') { 
+                notifyBuildResult(dockerTag, registryUrl, webhookUrl)
+            }
         }
     }
 
