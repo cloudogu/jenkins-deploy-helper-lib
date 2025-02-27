@@ -190,9 +190,11 @@ def notifyBuildResult(String dockerTag, String registryUrl, String webhookUrl) {
     def messageText = "Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} completed successfully. Docker image ${dockerTag} was pushed to ${registryUrl} and deployed with ArgoCD."
     if (currentBuild.result == 'FAILURE') {
         messageText = "*🚨🚨🚨 **PIPELINE FAILURE** 🚨🚨🚨*\n\nPipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} failed.\n <${env.BUILD_URL}console|View Console Output> ."
+        messageTextclean = "*🚨🚨🚨 **PIPELINE FAILURE** 🚨🚨🚨*\n\nPipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} failed.\n <${env.BUILD_URL}console|View Console Output> ."
     }
 
     def message = [
+        text: messageTextclean,
         formattedText: messageText
     ]
 
