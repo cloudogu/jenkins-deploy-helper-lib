@@ -84,7 +84,6 @@ def call(Map config) {
                 echo "Cleaning up repository: ${repoName}"
                 
                 def listCmd = "gcloud container images list-tags ${repoName} --format=json"
-                if (registryUrl.contains("gcr.io")) {
                 
                 withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
                     sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
