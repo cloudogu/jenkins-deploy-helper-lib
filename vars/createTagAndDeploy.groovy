@@ -148,11 +148,13 @@ def call(Map config) {
                                     tagList = tagList.findAll { it.contains('-') }
                                 
                                     // Use explicit sorting **without closures**
-                                    tagList = tagList.sort { a, b ->
-                                        def aTimestamp = a.split('-')[1]
-                                        def bTimestamp = b.split('-')[1]
-                                        return bTimestamp <=> aTimestamp
-                                    }.toSorted()
+                                    tagList = tagList
+                                        .collect() // Ensures we are working with a real List
+                                        .sort { a, b ->
+                                            def aTimestamp = a.split('-')[1]
+                                            def bTimestamp = b.split('-')[1]
+                                            return bTimestamp <=> aTimestamp
+                                        }
                                 
                                     // Prevent the .size() call on non-list values
                                     if (tagList instanceof List && tagList.size() > 5) {
