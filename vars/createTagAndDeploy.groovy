@@ -87,7 +87,8 @@ def call(Map config) {
 
                         // Use credentials to authenticate with gcloud
                         withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
-                            sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
+                            sh script: "gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE", mask: true
+                            // sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                             def artifacts = readJSON text: jsonOutput
                             
@@ -96,6 +97,7 @@ def call(Map config) {
                             def simpleTagPattern = ~/^[0-9]+\.[0-9]+\.[0-9]+$/  // E.g., "1.0.0"
                 
                             // Build a map: digest -> list of detailed & simple tags
+                            echo "Build a map: digest -> list of detailed & simple tags"
                             def artifactsByDigest = [:]
                             artifacts.each { artifact ->
                                 def digest = artifact.digest
@@ -106,6 +108,7 @@ def call(Map config) {
                             }
                 
                             // Prepare groups for artifacts with detailed tags
+                            echo "Prepare groups for artifacts with detailed tags"
                             def groups = [:]
                             def invalidArtifacts = []
                             
@@ -123,6 +126,7 @@ def call(Map config) {
                             }
                             
                             // Delete truly invalid artifacts
+                            echo "Delete truly invalid artifacts"
                             if (!invalidArtifacts.isEmpty()) {
                                 echo "Deleting invalid artifacts (no valid version tag found): ${invalidArtifacts}"
                                 invalidArtifacts.each { digest ->
@@ -133,6 +137,7 @@ def call(Map config) {
                             }
                             
                             // Prune detailed artifacts per patch version
+                            echo "Prune detailed artifacts per patch version"
                             groups.each { semver, tagList ->
                                 tagList = tagList.sort { a, b ->
                                     def aTimestamp = a.split('-')[1]
