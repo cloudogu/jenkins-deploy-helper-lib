@@ -83,14 +83,8 @@ def call(Map config) {
                                                      "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
                 echo "Cleaning up repository: ${repoName}"
                 
-                def listCmd = ""
+                def listCmd = "gcloud container images list-tags ${repoName} --format=json"
                 if (registryUrl.contains("gcr.io")) {
-                    listCmd = "gcloud container images list-tags ${repoName} --format=json"
-                } else if (registryUrl.contains("pkg.dev")) {
-                    listCmd = "gcloud artifacts docker images list-tags ${repoName} --location=europe --format=json"
-                } else {
-                    error("Registry ${registryUrl} not supported for cleanup")
-                }
                 
                 withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
                     sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
