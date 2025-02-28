@@ -138,22 +138,20 @@ def call(Map config) {
                             
                             // Prune detailed artifacts per patch version
                             echo "Prune detailed artifacts per patch version"
-                            groups.each { semver, tagList ->
-                                tagList = tagList.sort { a, b ->
-                                    def aTimestamp = a.split('-')[1]
-                                    def bTimestamp = b.split('-')[1]
-                                    return bTimestamp <=> aTimestamp
-                                }
-                                if (tagList.size() > 5) {
-                                    def tagsToDelete = tagList.drop(5)
-                                    echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
-                                    tagsToDelete.each { t ->
-                                        // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
-                                        echo "Deleting older image ${repoName}:${t}"
-                                        // sh(script: deleteCmd)
+                                groups.each { semver, tagList ->
+                                    tagList = tagList.findAll { it instanceof String }.sort { a, b ->
+                                        def aTimestamp = a.split('-')[1]
+                                        def bTimestamp = b.split('-')[1]
+                                        return bTimestamp <=> aTimestamp
                                     }
-                                }
-                            }
+                                    if (tagList instanceof List && tagList.size() > 5) {
+                                        def tagsToDelete = tagList.drop(5)
+                                        echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
+                                        tagsToDelete.each { t ->
+                                            echo "Deleting older image ${repoName}:${t}"
+                                     }
+                                  }
+                             }
                         }
                     }
                 }
