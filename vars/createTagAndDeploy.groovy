@@ -1,6 +1,7 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
+import java.util.Collections
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
@@ -87,7 +88,7 @@ def call(Map config) {
 
                         // Use credentials to authenticate with gcloud
                         withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
-                            sh "gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE"
+                            sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             // sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                             def artifacts = readJSON text: jsonOutput
@@ -138,34 +139,35 @@ def call(Map config) {
                             
                             // Prune detailed artifacts per patch version
                             echo "Prune detailed artifacts per patch version"
-                            groups.each { semver, tagList ->
+                                groups.each { semver, tagList ->
                                     echo "semver: ${semver}, taglist: ${tagList}"
                                 
-                                    // Ensure tagList is a list
                                     tagList = tagList as List
                                 
-                                    // Ensure sorting works properly
-                                    tagList = tagList.findAll { it.contains('-') } // Filter out entries without a timestamp
-                                        .sort(false) { a, b ->
+                                    // Filter out invalid tags
+                                    tagList = tagList.findAll { it.contains('-') }
+                                
+                                    // Use explicit sorting with Collections.sort() to avoid CPS & security plugin issues
+                                    Collections.sort(tagList, new Comparator<String>() {
+                                        @Override
+                                        int compare(String a, String b) {
                                             def aParts = a.split('-')
                                             def bParts = b.split('-')
                                 
-                                            // Ensure both parts have at least 2 elements before accessing index 1
                                             if (aParts.length < 2 || bParts.length < 2) {
                                                 return 0
                                             }
                                 
-                                            def aTimestamp = aParts[1]
-                                            def bTimestamp = bParts[1]
-                                
-                                            return bTimestamp <=> aTimestamp
+                                            return bParts[1] <=> aParts[1] // Sort descending
                                         }
+                                    })
                                 
                                     // Prevent the .size() call on non-list values
                                     if (tagList instanceof List && tagList.size() > 5) {
                                         def tagsToDelete = tagList.drop(5)
                                         echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
                                         tagsToDelete.each { t ->
+                                                // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
                                             echo "Deleting older image ${repoName}:${t}"
                                             // sh(script: deleteCmd)
                                         }
