@@ -155,9 +155,9 @@ def call(Map config) {
                                         def tagsToDelete = tagList.drop(5)
                                         echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
                                         tagsToDelete.each { t ->
-                                                // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
+                                            def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
                                             echo "Deleting older image ${repoName}:${t}"
-                                            // sh(script: deleteCmd)
+                                            sh(script: deleteCmd)
                                         }
                                     }
                                 }
