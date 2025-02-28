@@ -146,7 +146,7 @@ def call(Map config) {
                                 
                                     // Ensure sorting works properly
                                     tagList = tagList.findAll { it.contains('-') } // Filter out entries without a timestamp
-                                        .sort { a, b ->
+                                        .sort(false) { a, b ->
                                             def aParts = a.split('-')
                                             def bParts = b.split('-')
                                 
