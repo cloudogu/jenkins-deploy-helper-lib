@@ -99,7 +99,7 @@ def call(Map config) {
                             def artifactsByDigest = [:]
                             artifacts.each { artifact ->
                                 def digest = artifact.digest
-                                def tagList = artifact.tag ?: []
+                                def tagList = artifact.tags ?: []
                                 def validTags = tagList.findAll { it ==~ detailedTagPattern || it ==~ simpleTagPattern }
                                 artifactsByDigest[digest] = validTags
                             }
@@ -125,14 +125,9 @@ def call(Map config) {
                             if (!invalidArtifacts.isEmpty()) {
                                 echo "Deleting invalid artifacts (no valid version tag found): ${invalidArtifacts}"
                                 invalidArtifacts.each { digest ->
-                                    def deleteCmd = ""
-                                    if (registryUrl.contains("gcr.io")) {
-                                        deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
-                                    } else if (registryUrl.contains("pkg.dev")) {
-                                        deleteCmd = "gcloud artifacts docker images delete ${repoName}@${digest} --location=europe --quiet"
-                                    }
+                                    // def deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
                                     echo "Deleting untagged/invalid image ${repoName}@${digest}"
-                                    sh(script: deleteCmd)
+                                    // sh(script: deleteCmd)
                                 }
                             }
                             
