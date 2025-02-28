@@ -147,14 +147,21 @@ def call(Map config) {
                                     // Filter out invalid tags
                                     tagList = tagList.findAll { it.contains('-') }
                                 
-                                    // Use explicit sorting **without closures**
-                                    tagList = tagList
-                                        .collect() // Ensures we are working with a real List
-                                        .sort { a, b ->
-                                            def aTimestamp = a.split('-')[1]
-                                            def bTimestamp = b.split('-')[1]
-                                            return bTimestamp <=> aTimestamp
+                                    // Define a separate comparator function (avoids CPS issues)
+                                    def compareByTimestamp = { a, b ->
+                                        def aParts = a.split('-')
+                                        def bParts = b.split('-')
+                                
+                                        if (aParts.length < 2 || bParts.length < 2) {
+                                            return 0
                                         }
+                                
+                                        return bParts[1] <=> aParts[1] // Descending order
+                                    }
+                                
+                                    // Use the comparator function explicitly
+                                    tagList = tagList.sort(compareByTimestamp)
+
                                 
                                     // Prevent the .size() call on non-list values
                                     if (tagList instanceof List && tagList.size() > 5) {
