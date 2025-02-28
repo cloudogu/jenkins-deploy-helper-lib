@@ -103,7 +103,6 @@ def call(Map config) {
                             artifacts.each { artifact ->
                                 def digest = artifact.digest
                                 def tagList = artifact.tags ?: []
-                                echo "tagList: ${tagList}"
                                 def validTags = tagList.findAll { it ==~ detailedTagPattern || it ==~ simpleTagPattern }
                                 artifactsByDigest[digest] = validTags
                             }
@@ -131,17 +130,15 @@ def call(Map config) {
                             if (!invalidArtifacts.isEmpty()) {
                                 echo "Deleting invalid artifacts (no valid version tag found): ${invalidArtifacts}"
                                 invalidArtifacts.each { digest ->
-                                    // def deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
+                                    def deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
                                     echo "Deleting untagged/invalid image ${repoName}@${digest}"
-                                    // sh(script: deleteCmd)
+                                    sh(script: deleteCmd)
                                 }
                             }
                             
                             // Prune detailed artifacts per patch version
                             echo "Prune detailed artifacts per patch version"
-                                groups.each { semver, tagList ->
-                                    echo "semver: ${semver}, taglist: ${tagList}"
-                                
+                                groups.each { semver, tagList ->                                
                                     tagList = tagList as List
                                 
                                     // Filter out invalid tags
