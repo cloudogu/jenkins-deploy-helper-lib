@@ -130,7 +130,7 @@ def call(Map config) {
                             if (!invalidArtifacts.isEmpty()) {
                                 echo "Deleting invalid artifacts (no valid version tag found): ${invalidArtifacts}"
                                 invalidArtifacts.each { digest ->
-                                    def deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
+                                    def deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet --force-delete-tags"
                                     echo "Deleting untagged/invalid image ${repoName}@${digest}"
                                     sh(script: deleteCmd)
                                 }
@@ -152,7 +152,7 @@ def call(Map config) {
                                         def tagsToDelete = tagList.drop(5)
                                         echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
                                         tagsToDelete.each { t ->
-                                            def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
+                                            def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet --force-delete-tags"
                                             echo "Deleting older image ${repoName}:${t}"
                                             sh(script: deleteCmd)
                                         }
