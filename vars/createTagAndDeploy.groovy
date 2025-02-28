@@ -99,7 +99,7 @@ def call(Map config) {
                             def artifactsByDigest = [:]
                             artifacts.each { artifact ->
                                 def digest = artifact.digest
-                                def tagList = artifact.tags ?: []
+                                def tagList = artifact.tag ?: []
                                 def validTags = tagList.findAll { it ==~ detailedTagPattern || it ==~ simpleTagPattern }
                                 artifactsByDigest[digest] = validTags
                             }
