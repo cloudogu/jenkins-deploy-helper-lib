@@ -87,7 +87,7 @@ def call(Map config) {
 
                         // Use credentials to authenticate with gcloud
                         withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
-                            sh script: "gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE", mask: true
+                            sh "gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE"
                             // sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                             def artifacts = readJSON text: jsonOutput
@@ -139,23 +139,38 @@ def call(Map config) {
                             // Prune detailed artifacts per patch version
                             echo "Prune detailed artifacts per patch version"
                             groups.each { semver, tagList ->
-                                echo "semver: ${semver}, taglist: ${tagList}"
-
-                                tagList = tagList.sort { a, b ->
-                                    def aTimestamp = a.split('-')[1]
-                                    def bTimestamp = b.split('-')[1]
-                                    return bTimestamp <=> aTimestamp
-                                }
-                                if (tagList.size() > 5) {
-                                    def tagsToDelete = tagList.drop(5)
-                                    echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
-                                    tagsToDelete.each { t ->
-                                        // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
-                                        echo "Deleting older image ${repoName}:${t}"
-                                        // sh(script: deleteCmd)
+                                    echo "semver: ${semver}, taglist: ${tagList}"
+                                
+                                    // Ensure tagList is a list
+                                    tagList = tagList as List
+                                
+                                    // Ensure sorting works properly
+                                    tagList = tagList.findAll { it.contains('-') } // Filter out entries without a timestamp
+                                        .sort { a, b ->
+                                            def aParts = a.split('-')
+                                            def bParts = b.split('-')
+                                
+                                            // Ensure both parts have at least 2 elements before accessing index 1
+                                            if (aParts.length < 2 || bParts.length < 2) {
+                                                return 0
+                                            }
+                                
+                                            def aTimestamp = aParts[1]
+                                            def bTimestamp = bParts[1]
+                                
+                                            return bTimestamp <=> aTimestamp
+                                        }
+                                
+                                    // Prevent the .size() call on non-list values
+                                    if (tagList instanceof List && tagList.size() > 5) {
+                                        def tagsToDelete = tagList.drop(5)
+                                        echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
+                                        tagsToDelete.each { t ->
+                                            echo "Deleting older image ${repoName}:${t}"
+                                            // sh(script: deleteCmd)
+                                        }
                                     }
                                 }
-                            }
                         }
                     }
                 }
