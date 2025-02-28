@@ -74,7 +74,8 @@ def call(Map config) {
                 }
             }
 
-        // Cleanup Stage: remove old images from registry, keeping max 5 artifacts per patch version
+        // Cleanup Stage: remove old images from registry, keeping max 5 artifacts per patch version,
+        // and deleting any truly untagged artifacts.
         stage('Cleanup Docker Images') {
             script {
                 // Determine repository name based on subfolder
@@ -82,24 +83,43 @@ def call(Map config) {
                                                      "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
                 echo "Cleaning up repository: ${repoName}"
                 
-                def listCmd = "gcloud container images list-tags ${repoName} --format=json"
-                // Authenticate with gcloud using the service account key
+                def listCmd = ""
+                if (registryUrl.contains("gcr.io")) {
+                    listCmd = "gcloud container images list-tags ${repoName} --format=json"
+                } else if (registryUrl.contains("pkg.dev")) {
+                    listCmd = "gcloud artifacts docker images list-tags ${repoName} --location=europe --format=json"
+                } else {
+                    error("Registry ${registryUrl} not supported for cleanup")
+                }
+                
                 withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
                     sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                     def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                     def artifacts = readJSON text: jsonOutput
                     
-                    // Initialize groups for tagged images and list for untagged images
+                    // Build a map of digest -> list of tags (deduplicated)
+                    def artifactsByDigest = [:]
+                    artifacts.each { artifact ->
+                        def digest = artifact.digest
+                        def tagsForArtifact = artifact.tag ?: []
+                        if (artifactsByDigest.containsKey(digest)) {
+                            artifactsByDigest[digest] += tagsForArtifact
+                        } else {
+                            artifactsByDigest[digest] = tagsForArtifact
+                        }
+                    }
+                    // Remove duplicate tags for each digest
+                    artifactsByDigest.each { digest, tags ->
+                        artifactsByDigest[digest] = tags.unique()
+                    }
+                    
+                    // Prepare groups for tagged images and a list for untagged artifacts
                     def groups = [:]
                     def untagged = []
-                    
-                    artifacts.each { artifact ->
-                        def tagList = artifact.tag ?: []
-                        if (tagList.size() == 0) {
-                            // Artifact is untagged; add its digest for deletion
-                            if (artifact.digest) {
-                                untagged.add(artifact.digest)
-                            }
+                    artifactsByDigest.each { digest, tagList ->
+                        if (tagList.isEmpty()) {
+                            // Artifact is truly untagged; add its digest for deletion
+                            untagged.add(digest)
                         } else {
                             tagList.each { t ->
                                 if (t.contains('-')) {
@@ -115,14 +135,14 @@ def call(Map config) {
                     }
                     
                     // Delete untagged artifacts
-                    if (untagged) {
+                    if (!untagged.isEmpty()) {
                         echo "Deleting untagged artifacts with digests: ${untagged}"
                         untagged.each { digest ->
                             def deleteCmd = ""
                             if (registryUrl.contains("gcr.io")) {
                                 deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
                             } else if (registryUrl.contains("pkg.dev")) {
-                                deleteCmd = "gcloud artifacts docker images delete ${repoName}@${digest} --quiet"
+                                deleteCmd = "gcloud artifacts docker images delete ${repoName}@${digest} --location=europe --quiet"
                             }
                             echo "Deleting untagged image ${repoName}@${digest}"
                             sh(script: deleteCmd)
@@ -144,7 +164,7 @@ def call(Map config) {
                                 if (registryUrl.contains("gcr.io")) {
                                     deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
                                 } else if (registryUrl.contains("pkg.dev")) {
-                                    deleteCmd = "gcloud artifacts docker images delete ${repoName}:${t} --quiet"
+                                    deleteCmd = "gcloud artifacts docker images delete ${repoName}:${t} --location=europe --quiet"
                                 }
                                 echo "Deleting image ${repoName}:${t}"
                                 sh(script: deleteCmd)
@@ -154,6 +174,7 @@ def call(Map config) {
                 }
             }
         }
+
 
         } catch (Exception e) {
             echo "Pipeline failed: ${e.getMessage()}"
