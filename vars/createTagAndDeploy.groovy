@@ -73,7 +73,72 @@ def call(Map config) {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
             }
-            
+
+            // Cleanup Stage: remove old images from registry, keeping max 5 artifacts per patch version
+            stage('Cleanup Docker Images') {
+                    script {
+                        // Determine repository name based on subfolder
+                        def repoName = (subfolder == '.') ? "${registryUrl}/cloudogu-backend/team-${team}/${classname}" :
+                                                             "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
+                        echo "Cleaning up repository: ${repoName}"
+                        
+                        // Choose the appropriate gcloud command based on the registry type
+                        def listCmd = ""
+                        if (registryUrl.contains("gcr.io")) {
+                            listCmd = "gcloud container images list-tags ${repoName} --format=json"
+                        } else if (registryUrl.contains("pkg.dev")) {
+                            listCmd = "gcloud artifacts docker images list-tags ${repoName} --format=json"
+                        } else {
+                            error("Registry ${registryUrl} not supported for cleanup")
+                        }
+                        
+                        // Use withCredentials to authenticate with gcloud using the service account key
+                        withCredentials([file(credentialsId: 'ar-${team}-sf', variable: 'GCLOUD_KEY_FILE')]) {
+                            sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
+                            def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
+                            def tags = readJSON text: jsonOutput
+                            
+                            // Group tags by semantic version (format: "<major>.<minor>.<patch>-<timestamp>-<hash>")
+                            def groups = [:]
+                            tags.each { tagObj ->
+                                def tagList = tagObj.tag ?: []
+                                tagList.each { t ->
+                                    if (t.contains('-')) {
+                                        def tokens = t.split('-')
+                                        if (tokens.size() >= 3) {
+                                            def semver = tokens[0]  // e.g., "3.2.10" where "10" is the patch version
+                                            groups[semver] = groups.get(semver, []) + [t]
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // For each semantic version, sort by timestamp (second token) descending and delete excess tags
+                            groups.each { semver, tagList ->
+                                tagList = tagList.sort { a, b ->
+                                    def aTimestamp = a.split('-')[1]
+                                    def bTimestamp = b.split('-')[1]
+                                    return bTimestamp <=> aTimestamp
+                                }
+                                if (tagList.size() > 5) {
+                                    def tagsToDelete = tagList.drop(5)
+                                    echo "For semantic version ${semver}, deleting tags: ${tagsToDelete}"
+                                    tagsToDelete.each { t ->
+                                        def deleteCmd = ""
+                                        if (registryUrl.contains("gcr.io")) {
+                                            deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
+                                        } else if (registryUrl.contains("pkg.dev")) {
+                                            deleteCmd = "gcloud artifacts docker images delete ${repoName}:${t} --quiet"
+                                        }
+                                        echo "Deleting image ${repoName}:${t}"
+                                        sh(script: deleteCmd)
+                                    }
+                                }
+                            }
+                        }
+                    }
+        }
+
         } catch (Exception e) {
             echo "Pipeline failed: ${e.getMessage()}"
             currentBuild.result = 'FAILURE'
