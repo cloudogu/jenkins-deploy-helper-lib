@@ -140,7 +140,6 @@ def call(Map config) {
 
                         // Prune detailed artifacts per patch version
                         echo "Prune detailed artifacts per patch version"
-                        
                         groups.each { semver, tagList ->
                             if (!(tagList instanceof List)) {
                                 echo "WARNING: tagList for ${semver} is not a List! Type: ${tagList.getClass()}"
@@ -150,16 +149,15 @@ def call(Map config) {
                             // Ensure only valid tags are processed
                             tagList = tagList.findAll { it instanceof String && it.contains('-') }
                         
-                            // Fix sorting issue (avoid CPS Closure interference)
-                            tagList = tagList.collect().sort { a, b ->
-                                def aParts = a.split('-')
-                                def bParts = b.split('-')
-                        
-                                def aTimestamp = (aParts.size() > 1) ? aParts[1] : "000000000000"
-                                def bTimestamp = (bParts.size() > 1) ? bParts[1] : "000000000000"
-                        
-                                return bTimestamp <=> aTimestamp
+                            // Safe sorting using Collections.sort
+                            tagList = tagList.sort { a, b ->
+                                    def aParts = a.split('-')
+                                    def bParts = b.split('-')
+                                    def aTimestamp = (aParts.size() > 1) ? aParts[1] : "000000000000"
+                                    def bTimestamp = (bParts.size() > 1) ? bParts[1] : "000000000000"
+                                    return bTimestamp <=> aTimestamp
                             }
+
                         
                             echo "Sorted tagList for ${semver}: ${tagList}"
                         
@@ -171,7 +169,6 @@ def call(Map config) {
                                 }
                             }
                         }
-
 
                         }
                     }
