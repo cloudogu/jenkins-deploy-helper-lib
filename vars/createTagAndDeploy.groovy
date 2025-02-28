@@ -73,100 +73,89 @@ def call(Map config) {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
             }
+                
+                // Cleanup Stage: Remove old images from registry, keeping max 5 detailed artifacts per patch version,
+                // and deleting only artifacts that have no valid version tag (neither detailed nor simple).
+                stage('Cleanup Docker Images') {
+                    script {
+                        // Determine repository name based on subfolder
+                        def repoName = (subfolder == '.') ? "${registryUrl}/cloudogu-backend/team-${team}/${classname}" :
+                                                             "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
+                        echo "Cleaning up repository: ${repoName}"
+                        
+                        def listCmd = "gcloud container images list-tags ${repoName} --format=json"
 
-        // Cleanup Stage: remove old images from registry, keeping max 5 artifacts per patch version,
-        // and deleting any truly untagged artifacts.
-        stage('Cleanup Docker Images') {
-            script {
-                // Determine repository name based on subfolder
-                def repoName = (subfolder == '.') ? "${registryUrl}/cloudogu-backend/team-${team}/${classname}" :
-                                                     "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
-                echo "Cleaning up repository: ${repoName}"
+                        // Use credentials to authenticate with gcloud
+                        withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
+                            sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
+                            def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
+                            def artifacts = readJSON text: jsonOutput
+                            
+                            // Define regex patterns
+                            def detailedTagPattern = ~/^[0-9]+\.[0-9]+\.[0-9]+-\d{12}-[0-9a-f]+$/  // E.g., "1.0.0-202502281019-6160697"
+                            def simpleTagPattern = ~/^[0-9]+\.[0-9]+\.[0-9]+$/  // E.g., "1.0.0"
                 
-                def listCmd = "gcloud container images list-tags ${repoName} --format=json"
+                            // Build a map: digest -> list of detailed & simple tags
+                            def artifactsByDigest = [:]
+                            artifacts.each { artifact ->
+                                def digest = artifact.digest
+                                def tagList = artifact.tag ?: []
+                                def validTags = tagList.findAll { it ==~ detailedTagPattern || it ==~ simpleTagPattern }
+                                artifactsByDigest[digest] = validTags
+                            }
                 
-                withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
-                    sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
-                    def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
-                    def artifacts = readJSON text: jsonOutput
-                    
-                    // Build a map of digest -> list of tags (deduplicated)
-                    def artifactsByDigest = [:]
-                    artifacts.each { artifact ->
-                        def digest = artifact.digest
-                        def tagsForArtifact = artifact.tag ?: []
-                        if (artifactsByDigest.containsKey(digest)) {
-                            artifactsByDigest[digest] += tagsForArtifact
-                        } else {
-                            artifactsByDigest[digest] = tagsForArtifact
-                        }
-                    }
-                    // Remove duplicate tags for each digest
-                    artifactsByDigest.each { digest, tags ->
-                        artifactsByDigest[digest] = tags.unique()
-                    }
-                    
-                    // Prepare groups for tagged images and a list for untagged artifacts
-                    def groups = [:]
-                    def untagged = []
-                    artifactsByDigest.each { digest, tagList ->
-                        if (tagList.isEmpty()) {
-                            // Artifact is truly untagged; add its digest for deletion
-                            untagged.add(digest)
-                        } else {
-                            tagList.each { t ->
-                                if (t.contains('-')) {
-                                    def tokens = t.split('-')
-                                    if (tokens.size() >= 3) {
-                                        // Group by the semantic version part (e.g. "3.2.10")
-                                        def semver = tokens[0]
+                            // Prepare groups for artifacts with detailed tags
+                            def groups = [:]
+                            def invalidArtifacts = []
+                            
+                            artifactsByDigest.each { digest, validTags ->
+                                if (validTags.isEmpty()) {
+                                    // Artifact has no valid version tag (neither detailed nor simple), delete it
+                                    invalidArtifacts.add(digest)
+                                } else {
+                                    // Group artifacts by patch version from detailed tags
+                                    validTags.findAll { it ==~ detailedTagPattern }.each { t ->
+                                        def semver = t.split('-')[0]  // Extract patch version (e.g. "1.0.0" from "1.0.0-202502281019-6160697")
                                         groups[semver] = groups.get(semver, []) + [t]
+                                    }
+                                }
+                            }
+                            
+                            // Delete truly invalid artifacts
+                            if (!invalidArtifacts.isEmpty()) {
+                                echo "Deleting invalid artifacts (no valid version tag found): ${invalidArtifacts}"
+                                invalidArtifacts.each { digest ->
+                                    def deleteCmd = ""
+                                    if (registryUrl.contains("gcr.io")) {
+                                        deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
+                                    } else if (registryUrl.contains("pkg.dev")) {
+                                        deleteCmd = "gcloud artifacts docker images delete ${repoName}@${digest} --location=europe --quiet"
+                                    }
+                                    echo "Deleting untagged/invalid image ${repoName}@${digest}"
+                                    sh(script: deleteCmd)
+                                }
+                            }
+                            
+                            // Prune detailed artifacts per patch version
+                            groups.each { semver, tagList ->
+                                tagList = tagList.sort { a, b ->
+                                    def aTimestamp = a.split('-')[1]
+                                    def bTimestamp = b.split('-')[1]
+                                    return bTimestamp <=> aTimestamp
+                                }
+                                if (tagList.size() > 5) {
+                                    def tagsToDelete = tagList.drop(5)
+                                    echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
+                                    tagsToDelete.each { t ->
+                                        // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
+                                        echo "Deleting older image ${repoName}:${t}"
+                                        // sh(script: deleteCmd)
                                     }
                                 }
                             }
                         }
                     }
-                    
-                    // Delete untagged artifacts
-                    if (!untagged.isEmpty()) {
-                        echo "Deleting untagged artifacts with digests: ${untagged}"
-                        untagged.each { digest ->
-                            def deleteCmd = ""
-                            if (registryUrl.contains("gcr.io")) {
-                                deleteCmd = "gcloud container images delete ${repoName}@${digest} --quiet"
-                            } else if (registryUrl.contains("pkg.dev")) {
-                                deleteCmd = "gcloud artifacts docker images delete ${repoName}@${digest} --location=europe --quiet"
-                            }
-                            echo "Deleting untagged image ${repoName}@${digest}"
-                            sh(script: deleteCmd)
-                        }
-                    }
-                    
-                    // For each semantic version, sort by timestamp (second token) descending and delete excess tags
-                    groups.each { semver, tagList ->
-                        tagList = tagList.sort { a, b ->
-                            def aTimestamp = a.split('-')[1]
-                            def bTimestamp = b.split('-')[1]
-                            return bTimestamp <=> aTimestamp
-                        }
-                        if (tagList.size() > 5) {
-                            def tagsToDelete = tagList.drop(5)
-                            echo "For semantic version ${semver}, deleting tags: ${tagsToDelete}"
-                            tagsToDelete.each { t ->
-                                def deleteCmd = ""
-                                if (registryUrl.contains("gcr.io")) {
-                                    deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
-                                } else if (registryUrl.contains("pkg.dev")) {
-                                    deleteCmd = "gcloud artifacts docker images delete ${repoName}:${t} --location=europe --quiet"
-                                }
-                                echo "Deleting image ${repoName}:${t}"
-                                sh(script: deleteCmd)
-                            }
-                        }
-                    }
                 }
-            }
-        }
 
 
         } catch (Exception e) {
