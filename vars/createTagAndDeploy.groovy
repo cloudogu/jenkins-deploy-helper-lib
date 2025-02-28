@@ -1,7 +1,6 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
-import java.util.Collections
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
@@ -88,7 +87,7 @@ def call(Map config) {
 
                         // Use credentials to authenticate with gcloud
                         withCredentials([file(credentialsId: "ar-${team}-sf", variable: "GCLOUD_KEY_FILE")]) {
-                            sh 'gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE'
+                            sh script: "gcloud auth activate-service-account --key-file=$GCLOUD_KEY_FILE", mask: true
                             // sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                             def artifacts = readJSON text: jsonOutput
@@ -137,39 +136,26 @@ def call(Map config) {
                                 }
                             }
                             
+                            // Prune detailed artifacts per patch version
+                            echo "Prune detailed artifacts per patch version"
+                            groups.each { semver, tagList ->
+                                echo "semver: ${semver}, taglist: ${tagList}"
 
-                        // Prune detailed artifacts per patch version
-                        echo "Prune detailed artifacts per patch version"
-                        groups.each { semver, tagList ->
-                            if (!(tagList instanceof List)) {
-                                echo "WARNING: tagList for ${semver} is not a List! Type: ${tagList.getClass()}"
-                                tagList = []
-                            }
-                        
-                            // Ensure only valid tags are processed
-                            tagList = tagList.findAll { it instanceof String && it.contains('-') }
-                        
-                            // Safe sorting using Collections.sort
-                            tagList = tagList.sort { a, b ->
-                                    def aParts = a.split('-')
-                                    def bParts = b.split('-')
-                                    def aTimestamp = (aParts.size() > 1) ? aParts[1] : "000000000000"
-                                    def bTimestamp = (bParts.size() > 1) ? bParts[1] : "000000000000"
+                                tagList = tagList.sort { a, b ->
+                                    def aTimestamp = a.split('-')[1]
+                                    def bTimestamp = b.split('-')[1]
                                     return bTimestamp <=> aTimestamp
-                            }
-
-                        
-                            echo "Sorted tagList for ${semver}: ${tagList}"
-                        
-                            if (tagList.size() > 5) {
-                                def tagsToDelete = tagList.drop(5)
-                                echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
-                                tagsToDelete.each { t ->
-                                    echo "Deleting older image ${repoName}:${t}"
+                                }
+                                if (tagList.size() > 5) {
+                                    def tagsToDelete = tagList.drop(5)
+                                    echo "For semantic version ${semver}, deleting older tags: ${tagsToDelete}"
+                                    tagsToDelete.each { t ->
+                                        // def deleteCmd = "gcloud container images delete ${repoName}:${t} --quiet"
+                                        echo "Deleting older image ${repoName}:${t}"
+                                        // sh(script: deleteCmd)
+                                    }
                                 }
                             }
-                        }
-
                         }
                     }
                 }
