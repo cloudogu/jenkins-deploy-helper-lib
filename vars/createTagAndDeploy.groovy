@@ -147,20 +147,12 @@ def call(Map config) {
                                     // Filter out invalid tags
                                     tagList = tagList.findAll { it.contains('-') }
                                 
-                                    // Use explicit sorting with Collections.sort() to avoid CPS & security plugin issues
-                                    Collections.sort(tagList, new Comparator<String>() {
-                                        @Override
-                                        int compare(String a, String b) {
-                                            def aParts = a.split('-')
-                                            def bParts = b.split('-')
-                                
-                                            if (aParts.length < 2 || bParts.length < 2) {
-                                                return 0
-                                            }
-                                
-                                            return bParts[1] <=> aParts[1] // Sort descending
-                                        }
-                                    })
+                                    // Use explicit sorting **without closures**
+                                    tagList = tagList.sort { a, b ->
+                                        def aTimestamp = a.split('-')[1]
+                                        def bTimestamp = b.split('-')[1]
+                                        return bTimestamp <=> aTimestamp
+                                    }.toSorted()
                                 
                                     // Prevent the .size() call on non-list values
                                     if (tagList instanceof List && tagList.size() > 5) {
