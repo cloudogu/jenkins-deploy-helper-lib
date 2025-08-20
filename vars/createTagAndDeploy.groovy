@@ -28,7 +28,7 @@ def call(Map config) {
         def applicationName = config.applicationName ?: classname
 
         try {
-            
+
             stage('Initialize Workspace') {
                 deleteDir()
             }
@@ -74,7 +74,7 @@ def call(Map config) {
                     echo "Skipping deployment stage as deploy flag is set to false."
                 }
             }
-                
+
                 // Cleanup Stage: Remove old images from registry, keeping max 5 detailed artifacts per patch version,
                 // and deleting only artifacts that have no valid version tag (neither detailed nor simple).
                 stage('Cleanup Docker Images') {
@@ -83,7 +83,7 @@ def call(Map config) {
                         def repoName = (subfolder == '.') ? "${registryUrl}/cloudogu-backend/team-${team}/${classname}" :
                                                              "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}"
                         echo "Cleaning up repository: ${repoName}"
-                        
+
                         def listCmd = "gcloud container images list-tags ${repoName} --format=json"
 
                         // Use credentials to authenticate with gcloud
@@ -92,11 +92,11 @@ def call(Map config) {
                             // sh "gcloud auth activate-service-account --key-file=${GCLOUD_KEY_FILE}"
                             def jsonOutput = sh(script: listCmd, returnStdout: true).trim()
                             def artifacts = readJSON text: jsonOutput
-                            
+
                             // Define regex patterns
                             def detailedTagPattern = ~/^[0-9]+\.[0-9]+\.[0-9]+-\d{12}-[0-9a-f]+$/  // E.g., "1.0.0-202502281019-6160697"
                             def simpleTagPattern = ~/^[0-9]+\.[0-9]+\.[0-9]+$/  // E.g., "1.0.0"
-                
+
                             // Build a map: digest -> list of detailed & simple tags
                             echo "Build a map: digest -> list of detailed & simple tags"
                             def artifactsByDigest = [:]
@@ -106,12 +106,12 @@ def call(Map config) {
                                 def validTags = tagList.findAll { it ==~ detailedTagPattern || it ==~ simpleTagPattern }
                                 artifactsByDigest[digest] = validTags
                             }
-                
+
                             // Prepare groups for artifacts with detailed tags
                             echo "Prepare groups for artifacts with detailed tags"
                             def groups = [:]
                             def invalidArtifacts = []
-                            
+
                             artifactsByDigest.each { digest, validTags ->
                                 if (validTags.isEmpty()) {
                                     // Artifact has no valid version tag (neither detailed nor simple), delete it
@@ -124,7 +124,7 @@ def call(Map config) {
                                     }
                                 }
                             }
-                            
+
                             // Delete truly invalid artifacts
                             echo "Delete truly invalid artifacts"
                             if (!invalidArtifacts.isEmpty()) {
@@ -135,18 +135,18 @@ def call(Map config) {
                                     sh(script: deleteCmd)
                                 }
                             }
-                            
+
                             // Prune detailed artifacts per patch version
                             echo "Prune detailed artifacts per patch version"
-                                groups.each { semver, tagList ->                                
+                                groups.each { semver, tagList ->
                                     tagList = tagList as List
-                                
+
                                     // Filter out invalid tags
                                     tagList = tagList.findAll { it.contains('-') }
-                                
+
                                     // Call sorting function (Jenkins CPS-safe!)
                                     tagList = sortTags(tagList)
-                                
+
                                     // Prevent the .size() call on non-list values
                                     if (tagList instanceof List && tagList.size() > 5) {
                                         def tagsToDelete = tagList.drop(5)
@@ -168,7 +168,7 @@ def call(Map config) {
             currentBuild.result = 'FAILURE'
             throw e
         } finally {
-            if (currentBuild.result == 'FAILURE') { 
+            if (currentBuild.result == 'FAILURE') {
                 notifyBuildResult(dockerTag, registryUrl, webhookUrl)
             }
         }
@@ -176,6 +176,10 @@ def call(Map config) {
 
 // Helper functions to handle stages and reusable logic
 def getLatestTag() {
+    sh(
+        script: 'git fetch --tags',
+        returnStdout: true
+    )
     def gitTags = sh(
         script: "git tag -l --sort=-v:refname",
         returnStdout: true
@@ -251,7 +255,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
     if (subfolder == '.') {
             imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}:${dockerTag}"
     }
-        
+
     def gitopsConfig = [
         k8sVersion: "${env.K8S_VERSION_BC2}",
         scm: [
