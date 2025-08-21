@@ -185,7 +185,7 @@ def getLatestTag() {
         withCredentials([usernamePassword(credentialsId: 'github-pat-read-all-repos', usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
             echo "Using sos-automat PAT (github-pat-read-all-repos) to fetch tags"
             sh(
-                script: 'git -c http.extraheader="Authorization: Basic $(printf "%s:%s" "$GITHUB_USER" "$GITHUB_TOKEN" | base64)" fetch --tags',
+                script: 'git -c http.extraheader="Authorization: Basic $(printf "%s:%s" "$GITHUB_USER" "$GITHUB_TOKEN" | base64 -w0)" fetch --tags',
                 returnStdout: true
             )
         }
