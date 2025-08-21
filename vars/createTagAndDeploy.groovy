@@ -179,7 +179,7 @@ def getLatestTag() {
     def remoteHost = sh(
         script: "echo \"\$(git config --get remote.origin.url)\" | sed -E 's#^(https?://|git@)([^/:]+).*#\\2#'",
         returnStdout: true
-    ).trim().split("\n")
+    ).trim()
     echo "Remote host is: ${remoteHost}"
     if (remoteHost == "github.com") {
         withCredentials([string(credentialsId: 'github-pat-read-all-repos', usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
