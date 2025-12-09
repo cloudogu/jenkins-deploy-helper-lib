@@ -288,22 +288,24 @@ def repoUrl = cfg.scm.repositoryUrl.contains("://")
 
     // --- Safe pull method ---
     git.metaClass.pull = { String refSpec = '' ->
-        delegate.script.echo "🔧 SAFE pull --no-rebase ${refSpec}"
+        echo "🔧 SAFE pull --no-rebase ${refSpec}"
         delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
     }
 
     // --- Safe push with retry ---
-    git.metaClass.pushAndPullOnFailure = { String refSpec = '' ->
-        delegate.script.echo "⬆️  SAFE push with fallback pull"
-
-        try {
-            delegate.executeGitWithCredentials("push ${refSpec}")
-        } catch (Exception e) {
-            delegate.script.echo "⚠️ Push failed → pulling --no-rebase and retrying"
-            delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
-            delegate.executeGitWithCredentials("push ${refSpec}")
+        git.metaClass.pushAndPullOnFailure = { String refSpec = '' ->
+            echo "⬆️  SAFE push with fallback pull (${refSpec})"
+        
+            try {
+                delegate.executeGitWithCredentials("push ${refSpec}")
+            } catch (Exception e) {
+                echo "⚠️ Push failed → pulling --no-rebase and retrying"
+        
+                delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+                delegate.executeGitWithCredentials("push ${refSpec}")
+            }
         }
-    }
+
 
     // --- Temporary working directory ---
     def tempDir = ".gitops-tmp"
