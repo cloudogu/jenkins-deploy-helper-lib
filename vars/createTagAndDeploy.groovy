@@ -4,7 +4,6 @@ import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 
 // Patch Git.pull() BEFORE gitops-build-lib creates Git objects
-import com.cloudogu.ces.cesbuildlib.Git
 
 echo ">>> Library loaded, now applying Git.pull override"
 
