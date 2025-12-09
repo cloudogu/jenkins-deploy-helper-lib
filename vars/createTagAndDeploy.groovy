@@ -1,6 +1,7 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
+import com.cloudogu.ces.cesbuildlib.*
 import java.util.Collections
 
 // Define a function that encapsulates the shared pipeline logic
