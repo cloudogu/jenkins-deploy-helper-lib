@@ -67,36 +67,24 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
-                com.cloudogu.gitopsbuildlib.GitopsBuildLib.metaClass.commitAndPushToStage = { 
-                    String stage, String branch, def git, Map gitRepo ->
+                Git.metaClass.pushAndPullOnFailure = { String refSpec = '', String authorName = delegate.commitAuthorName, String authorEmail = delegate.commitAuthorEmail ->
                 
-                    git.script.echo "⚙️  Overridden commitAndPushToStage() executing for stage=${stage}, branch=${branch}"
+                    delegate.script.echo "⚙️  OVERRIDDEN pushAndPullOnFailure() called for refSpec='${refSpec}'"
                 
-                    // --- normal commit logic ---
-                    String commitPrefix = "[${stage}] "
-                    git.add('.')
+                    // Try push
+                    try {
+                        delegate.executeGitWithCredentials("push ${refSpec}")
+                    } catch (Exception e) {
+                        delegate.script.echo "⚠️ Push failed, doing safe pull (no-rebase)..."
                 
-                    if (git.areChangesStagedForCommit()) {
-                        git.commit(
-                            commitPrefix + delegate.createApplicationCommitMessage(gitRepo.applicationRepo),
-                            gitRepo.applicationRepo.authorName,
-                            gitRepo.applicationRepo.authorEmail
-                        )
-                
-                        // --- OUR FIX: safe pull (no rebase!) then push ---
-                        git.script.echo "⚙️  Using safe pull strategy (no-rebase)"
-                        git.withAuthorAndEmail(gitRepo.applicationRepo.authorName, gitRepo.applicationRepo.authorEmail) {
-                            git.executeGitWithCredentials("pull --no-rebase origin ${branch}")
+                        delegate.withAuthorAndEmail(authorName, authorEmail) {
+                            delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
                         }
                 
-                        git.executeGitWithCredentials("push origin ${branch}")
-                
-                        return "${stage} (${git.commitHashShort})"
-                    } else {
-                        git.script.echo "No changes detected. Skipping push."
-                        return ""
+                        delegate.executeGitWithCredentials("push ${refSpec}")
                     }
                 }
+
                 
                 echo ">>> GitOps-Build-Lib patch applied successfully"
 
