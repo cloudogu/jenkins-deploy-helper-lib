@@ -67,6 +67,7 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
+                import com.cloudogu.ces.cesbuildlib.Git
                 Git.metaClass.pushAndPullOnFailure = { String refSpec = '', String authorName = delegate.commitAuthorName, String authorEmail = delegate.commitAuthorEmail ->
                 
                     delegate.script.echo "⚙️  OVERRIDDEN pushAndPullOnFailure() called for refSpec='${refSpec}'"
