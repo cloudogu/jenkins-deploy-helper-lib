@@ -4,21 +4,24 @@ import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 
 // Patch Git.pull() BEFORE gitops-build-lib creates Git objects
-Git.metaClass.pull = { 
+import com.cloudogu.ces.cesbuildlib.Git
+
+echo ">>> Library loaded, now applying Git.pull override"
+
+// Apply override NOW — AFTER the library is in memory
+com.cloudogu.ces.cesbuildlib.Git.metaClass.pull = { 
     String refSpec = '', 
     String authorName = delegate.commitAuthorName, 
     String authorEmail = delegate.commitAuthorEmail ->
 
-    def gitObj = delegate
+    delegate.script.echo "⚙️  OVERRIDDEN pull() called with refSpec='${refSpec}'"
 
-    // Logging to Jenkins to prove override was hit
-    gitObj.script.echo "⚙️  [GitMetaClass] OVERRIDDEN pull() called with refSpec='${refSpec}' (no-rebase mode)"
-
-    gitObj.withAuthorAndEmail(authorName, authorEmail) {
-        // FIX: avoid rebase-based pull, which breaks on divergent branches
-        gitObj.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+    delegate.withAuthorAndEmail(authorName, authorEmail) {
+        delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
     }
 }
+
+echo ">>> Git.pull override successfully applied"
 
 
 // Define a function that encapsulates the shared pipeline logic
