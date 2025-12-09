@@ -1,7 +1,7 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
-import com.cloudogu.ces.cesbuildlib.Git
+import com.cloudogu.ces.cesbuildlib.*
 
 deployViaGitops.metaClass.call = { Map gitopsConfig ->
     Git.metaClass.pull = {
