@@ -327,7 +327,15 @@ def repoUrl = cfg.scm.repositoryUrl.contains("://")
             cfg.deployments.plain.updateImages.each { upd ->
                 echo "📝 Updating ${upd.filename}: ${upd.containerName} → ${upd.imageName}"
 
-                def yaml = readYaml(file: upd.filename)
+                def yamlPath = "${cfg.deployments.sourcePath}/${cfg.application}/${stageName}/${upd.filename}"
+                
+                echo "📄 Loading YAML: ${yamlPath}"
+                
+                if (!fileExists(yamlPath)) {
+                    error "YAML file not found: ${yamlPath}"
+                }
+                
+                def yaml = readYaml(file: yamlPath)
                 def container = yaml.spec.template.spec.containers.find { it.name == upd.containerName }
                 if (!container) {
                     echo "⚠️ container ${upd.containerName} not found in ${upd.filename}"
