@@ -2,6 +2,7 @@
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
+import com.cloudogu.ces.cesbuildlib.Git
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
@@ -67,7 +68,6 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
-                import com.cloudogu.ces.cesbuildlib.Git
                 Git.metaClass.pushAndPullOnFailure = { String refSpec = '', String authorName = delegate.commitAuthorName, String authorEmail = delegate.commitAuthorEmail ->
                 
                     delegate.script.echo "⚙️  OVERRIDDEN pushAndPullOnFailure() called for refSpec='${refSpec}'"
