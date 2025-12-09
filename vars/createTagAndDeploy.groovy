@@ -284,8 +284,8 @@ def deployViaGitopsSafe(Map cfg) {
     def branch = cfg.mainBranch ?: "main"
 
     // --- Create Git instance (REAL methods work here) ---
-    def ces = library(identifier: "ces-build-lib@4.1.1").com.cloudogu.ces.cesbuildlib
-    def git = new ces.Git(this, cfg.scm.credentialsId ?: '')
+    def cesBuildLib = initCesBuildLib('https://github.com/cloudogu/ces-build-lib', '4.4.0', cfg.scm.credentialsId ?: '')
+    def git = new cesBuildLib.Git(this, cfg.scm.credentialsId ?: '')
 
     //def git = new com.cloudogu.ces.cesbuildlib.Git(this, )
     git.committerName  = "Jenkins"
@@ -384,7 +384,16 @@ def deployViaGitopsSafe(Map cfg) {
     sh "rm -rf ${tempDir}"
 }
 
+protected initCesBuildLib(cesBuildLibRepo, cesBuildLibVersion, credentialsId) {
+    Map retrieverParams = [$class: 'GitSCMSource', remote: cesBuildLibRepo]
+    if (credentialsId?.trim()) {
+        retrieverParams << [credentialsId: credentialsId]
+    }
 
+    return library(identifier: "ces-build-lib@${cesBuildLibVersion}",
+        retriever: modernSCM(retrieverParams)
+    ).com.cloudogu.ces.cesbuildlib
+}
 
 def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder, String applicationName) {
     def imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}:${dockerTag}"
