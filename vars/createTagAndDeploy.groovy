@@ -260,6 +260,106 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
     }
 }
 
+/**
+ * Very small, self-contained GitOps deploy function.
+ * No metaClass, no overwriting foreign libs, no magic.
+ * 100% predictable / safe.
+ */
+def deployViaGitopsSafe(Map cfg) {
+    echo "🚀 Running deployViaGitopsSafe()"
+
+    // --- Normalize and validate ---
+    if (!cfg.scm?.repositoryUrl) error "Missing scm.repositoryUrl"
+    if (!cfg.application) error "Missing application name"
+    if (!cfg.stages) error "Missing stages"
+    if (!cfg.deployments?.plain?.updateImages) error "Only plain mode supported (updateImages missing)"
+
+    def repoUrl = cfg.scm.repositoryUrl
+    def branch  = cfg.mainBranch ?: "main"
+
+    // --- Create Git object from ces-build-lib ---
+    def git = new com.cloudogu.ces.cesbuildlib.Git(this, cfg.scm.credentialsId ?: '')
+    git.committerName = "Jenkins"
+    git.committerEmail = "jenkins@cloudogu.com"
+
+    // --- Safe pull method ---
+    git.metaClass.pull = { String refSpec = '' ->
+        delegate.script.echo "🔧 SAFE pull --no-rebase ${refSpec}"
+        delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+    }
+
+    // --- Safe push with retry ---
+    git.metaClass.pushAndPullOnFailure = { String refSpec = '' ->
+        delegate.script.echo "⬆️  SAFE push with fallback pull"
+
+        try {
+            delegate.executeGitWithCredentials("push ${refSpec}")
+        } catch (Exception e) {
+            delegate.script.echo "⚠️ Push failed → pulling --no-rebase and retrying"
+            delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+            delegate.executeGitWithCredentials("push ${refSpec}")
+        }
+    }
+
+    // --- Temporary working directory ---
+    def tempDir = ".gitops-tmp"
+    sh "rm -rf ${tempDir}"
+    sh "mkdir -p ${tempDir}"
+
+    dir(tempDir) {
+
+        echo "📥 Cloning GitOps repo: ${repoUrl}"
+        git url: repoUrl, branch: branch, changelog: false, poll: false
+        git.fetch()
+
+        def changes = []
+
+        cfg.stages.each { stageName, stageCfg ->
+            echo "=== 🔹 Stage: ${stageName} ==="
+
+            git.checkoutOrCreate(branch)
+
+            // apply updates to the YAML files
+            cfg.deployments.plain.updateImages.each { upd ->
+                echo "📝 Updating ${upd.filename}: ${upd.containerName} → ${upd.imageName}"
+
+                def yaml = readYaml(file: upd.filename)
+                def container = yaml.spec.template.spec.containers.find { it.name == upd.containerName }
+                if (!container) {
+                    echo "⚠️ container ${upd.containerName} not found in ${upd.filename}"
+                } else {
+                    container.image = upd.imageName
+                    writeYaml(file: upd.filename, data: yaml)
+                }
+            }
+
+            // commit + push if needed
+            git.add('.')
+
+            if (!git.areChangesStagedForCommit()) {
+                echo "ℹ️ No changes for stage ${stageName}"
+                return
+            }
+
+            git.commit(
+                "[${stageName}] Update images for ${cfg.application}",
+                "jenkins@cloudogu.com",
+                "Jenkins"
+            )
+
+            git.pushAndPullOnFailure("origin ${branch}")
+
+            changes << "${stageName}:${git.commitHashShort}"
+        }
+
+        echo "🎉 GitOps changes: ${changes ?: 'none'}"
+        currentBuild.description = "GitOps: ${changes.join(', ')}"
+    }
+
+    sh "rm -rf ${tempDir}"
+}
+
+
 def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder, String applicationName) {
     def imageName = "${registryUrl}/cloudogu-backend/team-${team}/${classname}/${subfolder}:${dockerTag}"
     if (subfolder == '.') {
@@ -297,7 +397,7 @@ def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag
             ]
         ],
     ]
-    deployViaGitops(gitopsConfig)
+    deployViaGitopsSafe(gitopsConfig)
 }
 
 
