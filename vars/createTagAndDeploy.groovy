@@ -3,6 +3,25 @@
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 
+// Patch Cloudogu Git.pull() to avoid divergent branch errors
+com.cloudogu.ces.cesbuildlib.Git.metaClass.pull = { 
+    String refSpec = '', 
+    String authorName = delegate.commitAuthorName, 
+    String authorEmail = delegate.commitAuthorEmail ->
+        
+    delegate.withAuthorAndEmail(authorName, authorEmail) {
+        // YOUR PREFERRED MODE:
+        // Use --no-rebase  (safe default)
+        delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+        
+        // OR use --rebase (if you want)
+        // delegate.executeGitWithCredentials("pull --rebase ${refSpec}")
+
+        // OR this for fast-forward only (GitOps-friendly!)
+        // delegate.executeGitWithCredentials("pull --ff-only ${refSpec}")
+    }
+}
+
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
 
