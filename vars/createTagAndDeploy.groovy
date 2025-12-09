@@ -351,7 +351,7 @@ def deployViaGitopsSafe(Map cfg) {
                 } else {
                     echo "📝 Updating: ${upd.containerName} → ${upd.imageName}"
                     container.image = upd.imageName
-                    writeYaml(file: yamlPath, data: yaml)
+                    writeYaml(file: yamlPath, data: yaml, overwrite: true)
                 }
             }
 
