@@ -3,9 +3,10 @@
 @Library([
   'github.com/cloudogu/ces-build-lib@4.1.1'
 ]) _
+import com.cloudogu.ces.cesbuildlib.*
+
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
-import com.cloudogu.ces.cesbuildlib.Git
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
