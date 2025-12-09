@@ -269,89 +269,97 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
 def deployViaGitopsSafe(Map cfg) {
     echo "🚀 Running deployViaGitopsSafe()"
 
-    // --- Normalize and validate ---
+    // --- Basic validation ---
     if (!cfg.scm?.repositoryUrl) error "Missing scm.repositoryUrl"
-    if (!cfg.application) error "Missing application name"
-    if (!cfg.stages) error "Missing stages"
-    if (!cfg.deployments?.plain?.updateImages) error "Only plain mode supported (updateImages missing)"
+    if (!cfg.application)       error "Missing application name"
+    if (!cfg.stages)            error "Missing stages"
+    if (!cfg.deployments?.plain?.updateImages)
+        error "Only plain mode supported (no updateImages)"
 
-def repoUrl = cfg.scm.repositoryUrl.contains("://")
-    ? cfg.scm.repositoryUrl
-    : "${cfg.scm.baseUrl}/repo/${cfg.scm.repositoryUrl}.git"
+    // --- Fix GitOps repo URL format ---
+    def repoUrl = cfg.scm.repositoryUrl.contains("://")
+        ? cfg.scm.repositoryUrl
+        : "${cfg.scm.baseUrl}/repo/${cfg.scm.repositoryUrl}.git"
 
-    def branch  = cfg.mainBranch ?: "main"
+    def branch = cfg.mainBranch ?: "main"
 
-    // --- Create Git object from ces-build-lib ---
+    // --- Create Git instance (REAL methods work here) ---
     def git = new com.cloudogu.ces.cesbuildlib.Git(this, cfg.scm.credentialsId ?: '')
-    git.committerName = "Jenkins"
+    git.committerName  = "Jenkins"
     git.committerEmail = "jenkins@cloudogu.com"
 
-    // --- Safe pull method ---
-    git.metaClass.pull = { String refSpec = '' ->
-        echo "🔧 SAFE pull --no-rebase ${refSpec}"
-        delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+    // -----------------------------------------------------------------
+    // SAFE WRAPPERS (NEVER override Git methods — just wrap them!)
+    // -----------------------------------------------------------------
+    def safePull = { String refSpec = '' ->
+        echo "🔧 SAFE pull (no-rebase) ${refSpec}"
+        git.executeGitWithCredentials("pull --no-rebase ${refSpec}")
     }
 
-    // --- Safe push with retry ---
-        git.metaClass.pushAndPullOnFailure = { String refSpec = '' ->
-            echo "⬆️  SAFE push with fallback pull (${refSpec})"
-        
-            try {
-                delegate.executeGitWithCredentials("push ${refSpec}")
-            } catch (Exception e) {
-                echo "⚠️ Push failed → pulling --no-rebase and retrying"
-        
-                delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
-                delegate.executeGitWithCredentials("push ${refSpec}")
-            }
+    def safePush = { String refSpec = '' ->
+        echo "⬆️  SAFE push (${refSpec})"
+
+        try {
+            git.executeGitWithCredentials("push ${refSpec}")
+        } catch (Exception e) {
+            echo "⚠️ Push failed → fallback pull+retry"
+            git.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+            git.executeGitWithCredentials("push ${refSpec}")
         }
+    }
 
-
-    // --- Temporary working directory ---
+    // --- Create workspace ---
     def tempDir = ".gitops-tmp"
     sh "rm -rf ${tempDir}"
     sh "mkdir -p ${tempDir}"
 
     dir(tempDir) {
 
+        // --- Clone repo ---
         echo "📥 Cloning GitOps repo: ${repoUrl}"
         git url: repoUrl, branch: branch, changelog: false, poll: false
         git.fetch()
 
         def changes = []
 
+        // -----------------------------------------------------------------
+        // PROCESS EACH STAGE
+        // -----------------------------------------------------------------
         cfg.stages.each { stageName, stageCfg ->
+
             echo "=== 🔹 Stage: ${stageName} ==="
 
+            // Ensure correct branch
             git.checkoutOrCreate(branch)
+            safePull("origin ${branch}")
 
-            // apply updates to the YAML files
+            // Update image references under k8s/<stage>/
             cfg.deployments.plain.updateImages.each { upd ->
-                echo "📝 Updating ${upd.filename}: ${upd.containerName} → ${upd.imageName}"
 
                 def yamlPath = "${cfg.deployments.sourcePath}/${stageName}/${upd.filename}"
-                
                 echo "📄 Loading YAML: ${yamlPath}"
-                
+
                 if (!fileExists(yamlPath)) {
                     error "YAML file not found: ${yamlPath}"
                 }
-                
+
                 def yaml = readYaml(file: yamlPath)
+
                 def container = yaml.spec.template.spec.containers.find { it.name == upd.containerName }
                 if (!container) {
-                    echo "⚠️ container ${upd.containerName} not found in ${upd.filename}"
+                    echo "⚠️ Container ${upd.containerName} not found → skipped"
                 } else {
+                    echo "📝 Updating: ${upd.containerName} → ${upd.imageName}"
                     container.image = upd.imageName
-                    writeYaml(file: upd.filename, data: yaml)
+                    writeYaml(file: yamlPath, data: yaml)
                 }
             }
 
-            // commit + push if needed
+            // COMMIT & PUSH IF NEEDED
             git.add('.')
 
             if (!git.areChangesStagedForCommit()) {
-                echo "ℹ️ No changes for stage ${stageName}"
+                echo "ℹ️ No changes for stage '${stageName}'"
                 return
             }
 
@@ -361,7 +369,7 @@ def repoUrl = cfg.scm.repositoryUrl.contains("://")
                 "Jenkins"
             )
 
-            git.pushAndPullOnFailure("origin ${branch}")
+            safePush("origin ${branch}")
 
             changes << "${stageName}:${git.commitHashShort}"
         }
@@ -372,6 +380,7 @@ def repoUrl = cfg.scm.repositoryUrl.contains("://")
 
     sh "rm -rf ${tempDir}"
 }
+
 
 
 def deployViaGitopsHelper(String classname, String registryUrl, String dockerTag, String repositoryUrl, String filename, String team, String containerName, String subfolder, String applicationName) {
