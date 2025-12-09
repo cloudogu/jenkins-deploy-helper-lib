@@ -1,44 +1,6 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
 import com.cloudogu.gitops.gitopsbuildlib.*
-import com.cloudogu.ces.cesbuildlib.*
-
-deployViaGitops.metaClass.call = { Map gitopsConfig ->
-    Git.metaClass.pull = {
-        String refSpec = '',
-        String authorName = delegate.commitAuthorName,
-        String authorEmail = delegate.commitAuthorEmail ->
-
-        delegate.script.echo "🚀 Patched pull() invoked — using --no-rebase"
-
-        delegate.withAuthorAndEmail(authorName, authorEmail) {
-            delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
-        }
-    }
-
-    Git.metaClass.pushAndPullOnFailure = {
-        String refSpec = '',
-        String authorName = delegate.commitAuthorName,
-        String authorEmail = delegate.commitAuthorEmail ->
-
-        delegate.script.echo "🚀 Patched pushAndPullOnFailure invoked"
-
-        try {
-            delegate.executeGitWithCredentials("push ${refSpec}")
-        } catch (ignored) {
-            delegate.script.echo "⚠️ Push failed, doing safe pull --no-rebase"
-
-            delegate.withAuthorAndEmail(authorName, authorEmail) {
-                delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
-            }
-
-            delegate.executeGitWithCredentials("push ${refSpec}")
-        }
-    }
-
-    deployViaGitops.invokeMethod("call", gitopsConfig)
-}
-
 import java.util.Collections
 
 // Define a function that encapsulates the shared pipeline logic
