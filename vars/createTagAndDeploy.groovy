@@ -288,6 +288,8 @@ def deployViaGitopsSafe(Map cfg) {
     // def git = new cesBuildLib.Git(this, cfg.scm.credentialsId ?: '')
 
     //def git = new com.cloudogu.ces.cesbuildlib.Git(this, )
+    def git = new com.cloudogu.ces.cesbuildlib.Git(this, cfg.scm.credentialsId ?: '')
+
     git.committerName  = "Jenkins"
     git.committerEmail = "jenkins@cloudogu.com"
 
