@@ -1,5 +1,8 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
+@Library([
+  'ces-build-lib'
+]) _
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 import com.cloudogu.ces.cesbuildlib.Git
