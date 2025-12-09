@@ -275,7 +275,9 @@ def deployViaGitopsSafe(Map cfg) {
     if (!cfg.stages) error "Missing stages"
     if (!cfg.deployments?.plain?.updateImages) error "Only plain mode supported (updateImages missing)"
 
-    def repoUrl = cfg.scm.repositoryUrl
+    def repoUrl = cfg.scm.repositoryUrl.contains("://")
+    ? cfg.scm.repositoryUrl
+    : "${cfg.scm.baseUrl}/${cfg.scm.repositoryUrl}"
     def branch  = cfg.mainBranch ?: "main"
 
     // --- Create Git object from ces-build-lib ---
