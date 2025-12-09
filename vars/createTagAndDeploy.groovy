@@ -3,24 +3,40 @@
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 
-// Patch Git.pull() BEFORE gitops-build-lib creates Git objects
+// Override GitOps-Build-Lib method BEFORE deployViaGitops is called
+com.cloudogu.gitopsbuildlib.GitopsBuildLib.metaClass.commitAndPushToStage = { 
+    String stage, String branch, def git, Map gitRepo ->
 
-echo ">>> Library loaded, now applying Git.pull override"
+    git.script.echo "⚙️  Overridden commitAndPushToStage() executing for stage=${stage}, branch=${branch}"
 
-// Apply override NOW — AFTER the library is in memory
-com.cloudogu.ces.cesbuildlib.Git.metaClass.pull = { 
-    String refSpec = '', 
-    String authorName = delegate.commitAuthorName, 
-    String authorEmail = delegate.commitAuthorEmail ->
+    // --- normal commit logic ---
+    String commitPrefix = "[${stage}] "
+    git.add('.')
 
-    delegate.script.echo "⚙️  OVERRIDDEN pull() called with refSpec='${refSpec}'"
+    if (git.areChangesStagedForCommit()) {
+        git.commit(
+            commitPrefix + delegate.createApplicationCommitMessage(gitRepo.applicationRepo),
+            gitRepo.applicationRepo.authorName,
+            gitRepo.applicationRepo.authorEmail
+        )
 
-    delegate.withAuthorAndEmail(authorName, authorEmail) {
-        delegate.executeGitWithCredentials("pull --no-rebase ${refSpec}")
+        // --- OUR FIX: safe pull (no rebase!) then push ---
+        git.script.echo "⚙️  Using safe pull strategy (no-rebase)"
+        git.withAuthorAndEmail(gitRepo.applicationRepo.authorName, gitRepo.applicationRepo.authorEmail) {
+            git.executeGitWithCredentials("pull --no-rebase origin ${branch}")
+        }
+
+        git.executeGitWithCredentials("push origin ${branch}")
+
+        return "${stage} (${git.commitHashShort})"
+    } else {
+        git.script.echo "No changes detected. Skipping push."
+        return ""
     }
 }
 
-echo ">>> Git.pull override successfully applied"
+echo ">>> GitOps-Build-Lib patch applied successfully"
+
 
 
 // Define a function that encapsulates the shared pipeline logic
