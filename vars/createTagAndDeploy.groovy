@@ -267,7 +267,7 @@ def pushDockerImage(def image, String dockerTag, String registryUrl, String serv
  * 100% predictable / safe.
  */
 def deployViaGitopsSafe(Map cfg) {
-    echo "🚀 Running deployViaGitopsSafe()"
+    echo "Running deployViaGitopsSafe()"
 
     // --- Basic validation ---
     if (!cfg.scm?.repositoryUrl) error "Missing scm.repositoryUrl"
@@ -283,18 +283,20 @@ def deployViaGitopsSafe(Map cfg) {
 
     def branch = cfg.mainBranch ?: "main"
 
-    // --- Create Git instance (REAL methods work here) ---
-    def ces = initCesBuildLib('https://github.com/cloudogu/ces-build-lib', '4.4.0', cfg.scm.credentialsId ?: '')
-    // def git = new cesBuildLib.Git(this, cfg.scm.credentialsId ?: '')
+    // --- Load ces-build-lib and init Git ---
+    def ces = initCesBuildLib(
+        'https://github.com/cloudogu/ces-build-lib',
+        '4.4.0',
+        cfg.scm.credentialsId ?: ''
+    )
 
-    //def git = new com.cloudogu.ces.cesbuildlib.Git(this, )
     def git = ces.Git.new(this, cfg.scm.credentialsId ?: '')
 
     git.committerName  = "Jenkins"
     git.committerEmail = "jenkins@cloudogu.com"
 
     // -----------------------------------------------------------------
-    // SAFE WRAPPERS (NEVER override Git methods — just wrap them!)
+    // SAFE WRAPPERS (no metaClass hacking)
     // -----------------------------------------------------------------
     def safePull = { String refSpec = '' ->
         echo "🔧 SAFE pull (no-rebase) ${refSpec}"
@@ -302,7 +304,7 @@ def deployViaGitopsSafe(Map cfg) {
     }
 
     def safePush = { String refSpec = '' ->
-        echo "⬆️  SAFE push (${refSpec})"
+        echo " SAFE push (${refSpec})"
 
         try {
             git.executeGitWithCredentials("push ${refSpec}")
@@ -338,11 +340,11 @@ def deployViaGitopsSafe(Map cfg) {
             git.checkoutOrCreate(branch)
             safePull("origin ${branch}")
 
-            // Update image references under k8s/<stage>/
+            // Update image references under apps/<app>/<stage>/
             cfg.deployments.plain.updateImages.each { upd ->
 
                 def yamlPath = "${cfg.deployments.sourcePath}/${stageName}/${upd.filename}"
-                echo "📄 Loading YAML: ${yamlPath}"
+                echo " Loading YAML: ${yamlPath}"
 
                 if (!fileExists(yamlPath)) {
                     error "YAML file not found: ${yamlPath}"
@@ -350,12 +352,46 @@ def deployViaGitopsSafe(Map cfg) {
 
                 def yaml = readYaml(file: yamlPath)
 
-                def container = yaml.spec.template.spec.containers.find { it.name == upd.containerName }
+                if (yaml == null) {
+                    error "Parsed YAML is null for ${yamlPath}"
+                }
+
+                // Handle multi-document YAML: pick first doc with 'kind'
+                if (yaml instanceof List) {
+                    yaml = yaml.find { it?.kind } ?: yaml[0]
+                }
+
+                // Figure out where the containers live (Deployment vs CronJob etc.)
+                def containers = null
+
+                switch (yaml.kind) {
+                    case 'CronJob':
+                        containers = yaml?.spec?.jobTemplate?.spec?.template?.spec?.containers
+                        break
+                    case 'Deployment':
+                    case 'StatefulSet':
+                    case 'DaemonSet':
+                        containers = yaml?.spec?.template?.spec?.containers
+                        break
+                    default:
+                        // Try common default path
+                        containers = yaml?.spec?.template?.spec?.containers
+                        break
+                }
+
+                if (!containers) {
+                    echo " No containers array found in ${yaml.kind ?: 'UNKNOWN'} at ${yamlPath} → skipping"
+                    return
+                }
+
+                def container = containers.find { it.name == upd.containerName }
                 if (!container) {
-                    echo "Container ${upd.containerName} not found → skipped"
+                    echo "Container ${upd.containerName} not found in ${yamlPath} → skipped"
                 } else {
                     echo "Updating: ${upd.containerName} → ${upd.imageName}"
                     container.image = upd.imageName
+
+                    // overwrite = true avoids FileAlreadyExistsException
                     writeYaml(file: yamlPath, data: yaml, overwrite: true)
                 }
             }
@@ -364,7 +400,7 @@ def deployViaGitopsSafe(Map cfg) {
             git.add('.')
 
             if (!git.areChangesStagedForCommit()) {
-                echo "No changes for stage '${stageName}'"
+                echo "ℹ️ No changes for stage '${stageName}'"
                 return
             }
 
@@ -385,6 +421,7 @@ def deployViaGitopsSafe(Map cfg) {
 
     sh "rm -rf ${tempDir}"
 }
+
 
 protected initCesBuildLib(cesBuildLibRepo, cesBuildLibVersion, credentialsId) {
     Map retrieverParams = [$class: 'GitSCMSource', remote: cesBuildLibRepo]
