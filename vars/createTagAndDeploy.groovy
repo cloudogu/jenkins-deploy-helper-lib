@@ -1,6 +1,6 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
-import com.cloudogu.gitops.gitopsbuildlib.deployViaGitops
+import com.cloudogu.gitops.gitopsbuildlib.*
 import com.cloudogu.ces.cesbuildlib.Git
 
 deployViaGitops.metaClass.call = { Map gitopsConfig ->
