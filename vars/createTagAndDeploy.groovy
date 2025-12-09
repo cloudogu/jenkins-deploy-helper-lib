@@ -307,7 +307,7 @@ def deployViaGitopsSafe(Map cfg) {
         try {
             git.executeGitWithCredentials("push ${refSpec}")
         } catch (Exception e) {
-            echo "⚠️ Push failed → fallback pull+retry"
+            echo "Push failed → fallback pull+retry"
             git.executeGitWithCredentials("pull --no-rebase ${refSpec}")
             git.executeGitWithCredentials("push ${refSpec}")
         }
@@ -321,7 +321,7 @@ def deployViaGitopsSafe(Map cfg) {
     dir(tempDir) {
 
         // --- Clone repo ---
-        echo "📥 Cloning GitOps repo: ${repoUrl}"
+        echo "Cloning GitOps repo: ${repoUrl}"
         git url: repoUrl, branch: branch, changelog: false, poll: false
         git.fetch()
 
@@ -352,9 +352,9 @@ def deployViaGitopsSafe(Map cfg) {
 
                 def container = yaml.spec.template.spec.containers.find { it.name == upd.containerName }
                 if (!container) {
-                    echo "⚠️ Container ${upd.containerName} not found → skipped"
+                    echo "Container ${upd.containerName} not found → skipped"
                 } else {
-                    echo "📝 Updating: ${upd.containerName} → ${upd.imageName}"
+                    echo "Updating: ${upd.containerName} → ${upd.imageName}"
                     container.image = upd.imageName
                     writeYaml(file: yamlPath, data: yaml, overwrite: true)
                 }
@@ -364,7 +364,7 @@ def deployViaGitopsSafe(Map cfg) {
             git.add('.')
 
             if (!git.areChangesStagedForCommit()) {
-                echo "ℹ️ No changes for stage '${stageName}'"
+                echo "No changes for stage '${stageName}'"
                 return
             }
 
@@ -379,7 +379,7 @@ def deployViaGitopsSafe(Map cfg) {
             changes << "${stageName}:${git.commitHashShort}"
         }
 
-        echo "🎉 GitOps changes: ${changes ?: 'none'}"
+        echo "GitOps changes: ${changes ?: 'none'}"
         currentBuild.description = "GitOps: ${changes.join(', ')}"
     }
 
