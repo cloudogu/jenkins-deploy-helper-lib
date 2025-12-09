@@ -3,42 +3,6 @@
 import com.cloudogu.gitops.gitopsbuildlib.*
 import java.util.Collections
 
-// Override GitOps-Build-Lib method BEFORE deployViaGitops is called
-com.cloudogu.gitopsbuildlib.GitopsBuildLib.metaClass.commitAndPushToStage = { 
-    String stage, String branch, def git, Map gitRepo ->
-
-    git.script.echo "⚙️  Overridden commitAndPushToStage() executing for stage=${stage}, branch=${branch}"
-
-    // --- normal commit logic ---
-    String commitPrefix = "[${stage}] "
-    git.add('.')
-
-    if (git.areChangesStagedForCommit()) {
-        git.commit(
-            commitPrefix + delegate.createApplicationCommitMessage(gitRepo.applicationRepo),
-            gitRepo.applicationRepo.authorName,
-            gitRepo.applicationRepo.authorEmail
-        )
-
-        // --- OUR FIX: safe pull (no rebase!) then push ---
-        git.script.echo "⚙️  Using safe pull strategy (no-rebase)"
-        git.withAuthorAndEmail(gitRepo.applicationRepo.authorName, gitRepo.applicationRepo.authorEmail) {
-            git.executeGitWithCredentials("pull --no-rebase origin ${branch}")
-        }
-
-        git.executeGitWithCredentials("push origin ${branch}")
-
-        return "${stage} (${git.commitHashShort})"
-    } else {
-        git.script.echo "No changes detected. Skipping push."
-        return ""
-    }
-}
-
-echo ">>> GitOps-Build-Lib patch applied successfully"
-
-
-
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
 
@@ -103,6 +67,40 @@ def call(Map config) {
             }
 
             stage('Deploy via Argo') {
+                com.cloudogu.gitopsbuildlib.GitopsBuildLib.metaClass.commitAndPushToStage = { 
+                    String stage, String branch, def git, Map gitRepo ->
+                
+                    git.script.echo "⚙️  Overridden commitAndPushToStage() executing for stage=${stage}, branch=${branch}"
+                
+                    // --- normal commit logic ---
+                    String commitPrefix = "[${stage}] "
+                    git.add('.')
+                
+                    if (git.areChangesStagedForCommit()) {
+                        git.commit(
+                            commitPrefix + delegate.createApplicationCommitMessage(gitRepo.applicationRepo),
+                            gitRepo.applicationRepo.authorName,
+                            gitRepo.applicationRepo.authorEmail
+                        )
+                
+                        // --- OUR FIX: safe pull (no rebase!) then push ---
+                        git.script.echo "⚙️  Using safe pull strategy (no-rebase)"
+                        git.withAuthorAndEmail(gitRepo.applicationRepo.authorName, gitRepo.applicationRepo.authorEmail) {
+                            git.executeGitWithCredentials("pull --no-rebase origin ${branch}")
+                        }
+                
+                        git.executeGitWithCredentials("push origin ${branch}")
+                
+                        return "${stage} (${git.commitHashShort})"
+                    } else {
+                        git.script.echo "No changes detected. Skipping push."
+                        return ""
+                    }
+                }
+                
+                echo ">>> GitOps-Build-Lib patch applied successfully"
+
+                
                 if (config.get('deploy', true)) { // Default is true
                     echo "Deploying via ArgoCD..."
                     deployViaGitopsHelper(classname, registryUrl, dockerTag, repositoryUrl, filename, team, containerName, subfolder, applicationName)
