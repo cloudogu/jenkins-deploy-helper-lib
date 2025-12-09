@@ -285,7 +285,7 @@ def deployViaGitopsSafe(Map cfg) {
 
     // --- Create Git instance (REAL methods work here) ---
     def cesBuildLib = initCesBuildLib('https://github.com/cloudogu/ces-build-lib', '4.4.0', cfg.scm.credentialsId ?: '')
-    def git = new cesBuildLib.Git(this, cfg.scm.credentialsId ?: '')
+    // def git = new cesBuildLib.Git(this, cfg.scm.credentialsId ?: '')
 
     //def git = new com.cloudogu.ces.cesbuildlib.Git(this, )
     git.committerName  = "Jenkins"
