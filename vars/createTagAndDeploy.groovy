@@ -284,7 +284,10 @@ def deployViaGitopsSafe(Map cfg) {
     def branch = cfg.mainBranch ?: "main"
 
     // --- Create Git instance (REAL methods work here) ---
-    def git = new com.cloudogu.ces.cesbuildlib.Git(this, cfg.scm.credentialsId ?: '')
+    def ces = library(identifier: "ces-build-lib@4.1.1").com.cloudogu.ces.cesbuildlib
+    def git = new ces.Git(this, cfg.scm.credentialsId ?: '')
+
+    //def git = new com.cloudogu.ces.cesbuildlib.Git(this, )
     git.committerName  = "Jenkins"
     git.committerEmail = "jenkins@cloudogu.com"
 
