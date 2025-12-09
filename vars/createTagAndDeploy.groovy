@@ -327,7 +327,7 @@ def repoUrl = cfg.scm.repositoryUrl.contains("://")
             cfg.deployments.plain.updateImages.each { upd ->
                 echo "📝 Updating ${upd.filename}: ${upd.containerName} → ${upd.imageName}"
 
-                def yamlPath = "${cfg.deployments.sourcePath}/${cfg.application}/${stageName}/${upd.filename}"
+                def yamlPath = "${cfg.deployments.sourcePath}/${stageName}/${upd.filename}"
                 
                 echo "📄 Loading YAML: ${yamlPath}"
                 
