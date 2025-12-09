@@ -1,24 +1,25 @@
 // vars/createTagAndDeploy.groovy
 //@Library('cloudogu/gitops-build-lib@0.6.0')
-import com.cloudogu.ces.cesbuildlib.Git
+import com.cloudogu.gitops.gitopsbuildlib.*
+import java.util.Collections
 
+// Patch Git.pull() BEFORE gitops-build-lib creates Git objects
 Git.metaClass.pull = { 
     String refSpec = '', 
     String authorName = delegate.commitAuthorName, 
     String authorEmail = delegate.commitAuthorEmail ->
 
-    // must use owner, not delegate!
     def gitObj = delegate
 
+    // Logging to Jenkins to prove override was hit
+    gitObj.script.echo "⚙️  [GitMetaClass] OVERRIDDEN pull() called with refSpec='${refSpec}' (no-rebase mode)"
+
     gitObj.withAuthorAndEmail(authorName, authorEmail) {
+        // FIX: avoid rebase-based pull, which breaks on divergent branches
         gitObj.executeGitWithCredentials("pull --no-rebase ${refSpec}")
     }
 }
 
-
-
-import com.cloudogu.gitops.gitopsbuildlib.*
-import java.util.Collections
 
 // Define a function that encapsulates the shared pipeline logic
 def call(Map config) {
